@@ -1,16 +1,24 @@
 package main
 
-import "github.com/gin-gonic/gin"
+import (
+	"employee_crud/api"
+	"employee_crud/config"
+	"employee_crud/database"
+	"log"
+)
 
 func main() {
-	r := gin.Default()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatal("Failed to load configuration:", err)
+	}
 
-	r.GET("/start", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "server is running",
-		})
-	})
+	pool, err := database.ConnectPostgres(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+	defer pool.Close()
 
-	r.Run(":9060")
-
+	router := api.SetupRouter(pool, cfg)
+	router.Run(":" + cfg.Port)
 }
