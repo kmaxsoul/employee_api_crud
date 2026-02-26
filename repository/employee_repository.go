@@ -10,9 +10,12 @@ import (
 
 func CreateEmployee(pool *pgxpool.Pool, employee *models.Employee) (*models.Employee, error) {
 	query := `
-		INSERT INTO crud_project.employees (first_name, last_name, age, email, department_id)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, first_name, last_name, age, email, department_id, deleted_at
+		WITH dept AS (
+			SELECT name FROM crud_project.departments WHERE id = $5
+		)
+		INSERT INTO crud_project.employees (first_name, last_name, age, email, department_id, department_name)
+		SELECT $1, $2, $3, $4, $5, dept.name FROM dept
+		RETURNING id, first_name, last_name, age, email, department_id, department_name, deleted_at
 	`
 
 	var created models.Employee
@@ -31,6 +34,7 @@ func CreateEmployee(pool *pgxpool.Pool, employee *models.Employee) (*models.Empl
 		&created.Age,
 		&created.Email,
 		&created.DepartmentID,
+		&created.DepartmentName,
 		&created.DeletedAt,
 	)
 	if err != nil {
@@ -42,9 +46,10 @@ func CreateEmployee(pool *pgxpool.Pool, employee *models.Employee) (*models.Empl
 
 func GetAllEmployees(pool *pgxpool.Pool) ([]models.Employee, error) {
 	query := `
-		SELECT id, first_name, last_name, age, email, department_id, deleted_at
-		FROM crud_project.employees
-		WHERE deleted_at IS NULL
+		SELECT e.id, e.first_name, e.last_name, e.age, e.email, e.department_id, d.name, e.deleted_at
+		FROM crud_project.employees e
+		LEFT JOIN crud_project.departments d ON e.department_id = d.id
+		WHERE e.deleted_at IS NULL
 	`
 	rows, err := pool.Query(context.Background(), query)
 	if err != nil {
@@ -62,6 +67,7 @@ func GetAllEmployees(pool *pgxpool.Pool) ([]models.Employee, error) {
 			&emp.Age,
 			&emp.Email,
 			&emp.DepartmentID,
+			&emp.DepartmentName,
 			&emp.DeletedAt,
 		)
 		if err != nil {
@@ -76,10 +82,14 @@ func GetAllEmployees(pool *pgxpool.Pool) ([]models.Employee, error) {
 
 func UpdateEmployee(pool *pgxpool.Pool, employee *models.Employee) (*models.Employee, error) {
 	query := `
+		WITH dept AS (
+			SELECT name FROM crud_project.departments WHERE id = $5
+		)
 		UPDATE crud_project.employees
-		SET first_name = $1, last_name = $2, age = $3, email = $4, department_id = $5
+		SET first_name = $1, last_name = $2, age = $3, email = $4, department_id = $5,
+		    department_name = (SELECT name FROM dept)
 		WHERE id = $6 AND deleted_at IS NULL
-		RETURNING id, first_name, last_name, age, email, department_id, deleted_at
+		RETURNING id, first_name, last_name, age, email, department_id, department_name, deleted_at
 	`
 
 	var updated models.Employee
@@ -99,6 +109,7 @@ func UpdateEmployee(pool *pgxpool.Pool, employee *models.Employee) (*models.Empl
 		&updated.Age,
 		&updated.Email,
 		&updated.DepartmentID,
+		&updated.DepartmentName,
 		&updated.DeletedAt,
 	)
 	if err != nil {
