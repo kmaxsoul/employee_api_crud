@@ -19,5 +19,11 @@ func SetupRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 		employeeGroup.DELETE("/:id", handlers.DeleteEmployee(pool))
 	}
 
+	attendanceGroup := router.Group("/attendance")
+	{
+		attendanceGroup.POST("", handlers.CreateAttendance(pool))
+		attendanceGroup.GET("", handlers.GetAllAttendances(pool))
+	}
+
 	return router
 }
